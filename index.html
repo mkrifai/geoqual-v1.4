@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GEOQUAL - Geophysical Soil Quality Monitoring</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div class="container">
+        <!-- Untuk Menampilkan Waktu Dinamis -->
+        <header id="timeHEader">
+            <div id="currentTimestamp" style="font-size: 14px; font-weight: bold;"></div>
+        </header>
+
+        <!-- Bagian Input Logo -->
+        <div style="text-align: center; margin-bottom: 20px;">
+            <img src="https://i.imgur.com/A3ia45R.png" alt="Logo" style="max-width: 80%; height: auto;">
+        </div>
+
+        <!-- Bagian Input Manual -->
+        <div class="box" id="manualRecommendation">
+            <h2>Rekomendasi Tanaman Manual</h2>
+            <label for="ph">pH Tanah:</label>
+            <input type="number" id="ph" step="0.1" min="3" max="10" class="full-width">
+            <label for="temp">Suhu (°C):</label>
+            <input type="number" id="temp" step="0.1" min="10" max="40" class="full-width">
+            <label for="moisture">Kelembapan Tanah:</label>
+            <select id="moistureCategory" class="full-width">
+                <option value=""></option>
+                <option value="D+">DRY+</option>
+                <option value="D">DRY</option>
+                <option value="N">NOR</option>
+                <option value="W">WET</option>
+                <option value="W+">WET+</option>
+            </select>
+            <button onclick="generateRecommendation()" class="full-width">Tampilkan Rekomendasi</button>
+            <div class="result" id="output" style="display:none;"></div>
+            <br>
+        </div>
+
+        <!-- Bagian Upload CSV -->
+        <div class="box">
+            <h2>Rekomendasi Tanaman Berbasis CSV</h2>
+            <input type="file" id="csvFile" accept=".csv" class="full-width">
+            <button onclick="handleCSV()" class="full-width">Unggah dan Proses</button>
+            <div id="csvReport">
+                <div class="map-wrapper">
+                    <div id="map" style="overflow-x: auto; width: 100%;"></div>
+                    <div class="legend">
+                        <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+                            <div class="legend-item"><span class="legend-color" style="background:#ff9999"></span>pH <
+                                    5.5 (Sangat Asam)</div>
+                                    <div class="legend-item"><span class="legend-color"
+                                            style="background:#ffe599"></span>pH 5.5–6.5 (Agak
+                                        Asam)</div>
+                                    <div class="legend-item"><span class="legend-color"
+                                            style="background:#b6d7a8"></span>pH 6.6–7.5
+                                        (Netral / Baik)</div>
+                                    <div class="legend-item"><span class="legend-color"
+                                            style="background:#a4c2f4"></span>pH 7.6–8.5 (Agak
+                                        Basa)</div>
+                                    <div class="legend-item"><span class="legend-color"
+                                            style="background:#d9d2e9"></span>pH > 8.5 (Sangat
+                                        Basa)</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="result" id="summary" style="display:none;"></div>
+                    <canvas id="qualityChart" width="400" height="280" style="margin-top: 20px; display:none;"></canvas>
+                </div>
+            </div>
+
+            <!-- Form input koordinat dan tombol tidak ikut PDF -->
+            <div class="box" style="margin-top: 20px;">
+                <h2>Lokasi Survei (Koordinat)</h2>
+                <div id="maplocation">
+                    <label for="latA">Titik A</label>
+                    <input type="text" id="pointA" class="full-width" placeholder="-7.983000; 112.626000">
+                    <label for="pointB">Titik B:</label>
+                    <input type="text" id="pointB" class="full-width" placeholder="-7.982980; 112.626180">
+                    <label for="pointC">Titik C:</label>
+                    <input type="text" id="pointC" class="full-width" placeholder="-7.982820; 112.626160">
+                    <label for="pointD">Titik D:</label>
+                    <input type="text" id="pointD" class="full-width" placeholder="-7.982840; 112.625980">
+                    <div id="polygonMap"
+                        style="display:none; margin-top: 10px; height: 400px; border-radius: 8px; position: relative;">
+                        <div id="elevationLegend" class="elevation-legend" style="display:none;"></div>
+                    </div>
+                    <div class="result" id="locationInfo"
+                        style="display:none; margin-top: 20px; text-align: center; line-height: 1.6;"></div>
+                </div>
+                <button onclick="showPolygonZoneCompact()" class="full-width" style="margin-top: 20px">Tampilkan Lokasi
+                    Survei</button>
+            </div>
+
+            <br>
+
+            <!-- Button untuk mengunduh PDF -->
+            <button onclick="window.print()" style="margin-top: 15px;" class="full-width">Unduh Laporan PDF</button>
+
+            <footer>
+                <div style="font-size: 11px; margin-bottom: 6px;">Dikembangkan oleh:</div>
+                <div style="font-size: 14px; font-weight: bold;">
+                    Kelompok Riset Geofisika, Departemen Fisika, Universitas Negeri Malang, Malang<br>
+                    Departemen Agribisnis Tanaman Pangan dan Hortikultura (ATPH), SMKN 1 Kademangan, Blitar
+                </div>
+            </footer>
+
+    <!-- Script -->
+    <script src="app.js"></script>
+
+</body>
+
+</html>
